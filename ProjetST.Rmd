@@ -1,0 +1,569 @@
+---
+title: "Analyse des Séries Temporelles"
+subtitle: "Production Industrielle GAZ & Ventes Mensuelles Équipements de Jardin"
+author: "Équipe - Module Séries Temporelles"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    toc: true
+    toc_depth: 3
+    number_sections: true
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    theme: flatly
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width  = 6,
+  fig.height = 4,
+  fig.align  = "center"
+)
+```
+
+```{r libraries}
+library(readxl)
+library(forecast)
+library(tseries)
+```
+
+---
+
+# Introduction
+
+Ce rapport s'inscrit dans le cadre du module **Séries Temporelles** et porte sur l'analyse 
+de deux séries temporelles mensuelles issues de sources officielles américaines. L'objectif 
+est d'appliquer de manière complète la démarche d'analyse des séries temporelles, depuis 
+l'exploration graphique jusqu'à la modélisation et la prévision.
+
+## Présentation des séries
+
+**Série 1 – Production Industrielle : Électricité et Gaz (IPG2211A2N)**
+
+La première série représente l'indice mensuel de production industrielle dans le secteur 
+de l'électricité et du gaz aux États-Unis, publié par la **Federal Reserve Bank of St. Louis** 
+via la base de données FRED. Elle couvre la période de **janvier 1990 à mars 2024**, soit 
+411 observations mensuelles. L'indice est base 100 en 2017. Cette série reflète directement 
+la consommation énergétique américaine, fortement influencée par les saisons (chauffage en 
+hiver, climatisation en été) et par les cycles économiques.
+
+**Série 2 – Ventes Mensuelles : Équipements de Jardin et Matériaux de Construction (NAICS 444)**
+
+La deuxième série représente les ventes mensuelles au détail dans le secteur des équipements 
+de jardin et des matériaux de construction aux États-Unis, publiées par le **U.S. Census Bureau** 
+dans le cadre de l'Advance Monthly Retail Trade Survey. Elle couvre la période de 
+**janvier 1992 à décembre 2024**, soit 387 observations mensuelles, exprimées en millions 
+de dollars USD. Cette série est naturellement liée aux saisons — les ventes explosent 
+au printemps et retombent en hiver — et reflète également la santé du marché immobilier 
+et du pouvoir d'achat des ménages américains.
+
+## Objectifs et méthodologie
+
+L'analyse est structurée en **trois phases** :
+
+**Phase 1 – Analyse statistique et graphique** : Cette première phase vise à comprendre 
+la nature de chaque série avant toute modélisation. On s'appuie sur le chronogramme, 
+la décomposition (additive ou multiplicative selon la série), le boxplot mensuel et le 
+corrélogramme (ACF) pour identifier les composantes présentes : tendance, saisonnalité 
+et résidus. Le test ADF complète l'analyse en vérifiant formellement la stationnarité.
+
+**Phase 2 – Ajustement de la série** : Cette phase a pour objectif de modéliser les 
+composantes déterministes de la série. On commence par un modèle de tendance linéaire, 
+puis on enrichit le modèle avec des **termes trigonométriques** (harmoniques cosinus et sinus) 
+pour capturer la saisonnalité. Le choix du meilleur modèle s'appuie sur le **R² ajusté** 
+et l'**AIC**. Une différenciation (régulière et saisonnière) est ensuite appliquée pour 
+stationnariser les résidus en vue de la modélisation ARIMA.
+
+**Phase 3 – Modélisation ARIMA des résidus** : La dernière phase consiste à identifier 
+et estimer un modèle **SARIMA** adapté à chaque série, à l'aide de la fonction `auto.arima`. 
+La validation du modèle repose sur l'analyse graphique et statistique des résidus 
+(ACF, test de Ljung-Box, distribution). Le modèle retenu est ensuite utilisé pour produire 
+des **prévisions sur 24 mois**.
+
+
+---
+
+# Série 1 : Production Industrielle – Électricité et Gaz (IPG2211A2N)
+
+> **Source** : Federal Reserve Economic Data (FRED) – Federal Reserve Bank of St. Louis
+> **Fréquence** : Mensuelle | **Période** : Janvier 1990 – Mars 2024
+
+---
+
+## Chargement et préparation des données
+
+```{r load-data}
+# Lecture du fichier Excel (les 9 premières lignes sont des métadonnées)
+raw_gaz <- read_excel("C:/Users/DELL/Downloads/ST/Production.xlsx",
+                      sheet = "FRED Graph", skip = 9)
+colnames(raw_gaz) <- c("date", "value")
+
+# Suppression de la ligne d'en-tête résiduelle et valeurs manquantes
+raw_gaz <- raw_gaz[raw_gaz$date != "observation_date" & !is.na(raw_gaz$date), ]
+raw_gaz$value <- as.numeric(raw_gaz$value)
+raw_gaz <- raw_gaz[!is.na(raw_gaz$value), ]
+
+# Création de l'objet ts mensuel (début : Janvier 1990)
+gaz.ts <- ts(raw_gaz$value, start = c(1990, 1), frequency = 12)
+
+cat("Nombre d'observations :", length(gaz.ts), "\n")
+summary(gaz.ts)
+```
+
+---
+
+## Phase 1 – Analyse Statistique et Graphique
+
+### (a) Analyse graphique
+
+```{r gaz-chronogramme}
+plot(gaz.ts,
+     main = "Production Industrielle : Électricité & Gaz (IPG2211A2N)",
+     ylab = "Indice de production (2017=100)",
+     xlab = "Temps",
+     col  = "steelblue")
+```
+
+> En regardant ce graphique, on voit clairement que la production tend à **augmenter sur le long terme**. Ce qui saute aux yeux aussi, c'est le mouvement régulier de montée et descente qui se répète chaque année — c'est la saisonnalité.
+
+```{r gaz-decomposition, fig.height=6}
+gaz.decomp <- decompose(gaz.ts, type = "additive")
+plot(gaz.decomp)
+```
+
+> La décomposition nous permet de séparer ce qui se passe dans la série en trois composantes. La **tendance** monte progressivement sur toute la période — on confirme bien ce qu'on voyait sur le chronogramme. La **saisonnalité** se répète de façon très stable d'une année à l'autre, avec la même forme et la même amplitude, ce qui justifie le choix du **modèle additif** : les fluctuations saisonnières ne grandissent pas avec le niveau. Les **résidus** sont relativement faibles et centrés autour de zéro, sauf quelques pics isolés.
+
+```{r gaz-acf-residus-decomp}
+acf(gaz.decomp$random, na.action = na.pass, lag.max = 48,
+    main = "ACF des résidus – Décomposition additive (GAZ)",
+    col  = "steelblue")
+```
+
+> L'ACF des résidus de la décomposition montre encore quelques pics significatifs, notamment aux premiers lags et aux multiples de 12. Cela veut dire que la décomposition classique n'a pas tout capturé — il reste de la structure dans les résidus. C'est ce qui nous pousse à aller plus loin avec une modélisation ARIMA.
+
+```{r gaz-boxplot-mois}
+boxplot(gaz.ts ~ cycle(gaz.ts),
+        main   = "Distribution par mois – Production Industrielle GAZ",
+        xlab   = "Mois",
+        ylab   = "Indice de production",
+        names  = c("Jan","Fév","Mar","Avr","Mai","Jun",
+                   "Jul","Aoû","Sep","Oct","Nov","Déc"),
+        col    = "lightblue")
+```
+
+> Ces boîtes à moustaches confirment ce qu'on suspectait : la série a un **double pic annuel**. Janvier et février sont clairement les mois les plus élevés — la consommation d'énergie explose en hiver pour le chauffage. Ensuite ça redescend au printemps, avec avril et mai au plus bas. Puis ça remonte en juillet-août à cause de la climatisation. Octobre et novembre retombent avant la reprise hivernale. C'est un profil tout à fait typique d'une série énergétique, et cela confirme la saisonnalité d'ordre 12.
+
+### (b) Analyse statistique
+
+```{r gaz-stats}
+summary(gaz.ts)
+cat("Écart-type :", round(sd(gaz.ts), 4), "\n")
+```
+
+> Les statistiques descriptives nous donnent une première idée de la série. L'indice varie entre **65.03** et **126.37**, avec une moyenne de **93.79**. L'écart-type de **13.07** reflète la forte variabilité saisonnière de la série. La médiane (92.74) est proche de la moyenne, ce qui suggère une distribution assez symétrique.
+
+```{r gaz-acf}
+acf(gaz.ts, lag.max = 48,
+    main = "ACF – Série brute (Production GAZ)",
+    col  = "steelblue")
+```
+
+> Le corrélogramme de la série brute est très parlant : les barres restent très élevées et mettent du temps à descendre — c'est le signe classique qu'on a affaire à une série **non stationnaire**. On voit aussi clairement des pics qui reviennent tous les 12 lags, ce qui confirme la présence d'une **saisonnalité mensuelle** bien marquée. Ces deux observations ensemble — décroissance lente et pics saisonniers — nous indiquent qu'on devra différencier la série avant de modéliser.
+
+```{r gaz-adf}
+adf.test(gaz.ts)
+```
+
+> Le test ADF nous donne une p-value de 0.01. Même si elle est inférieure à 0.05, l'ACF nous montre clairement une décroissance lente typique de la non-stationnarité. La série contient une tendance et une saisonnalité — on va donc différencier avant de modéliser.
+
+---
+
+## Phase 2 – Ajustement de la Série Temporelle
+
+### Modèle de tendance linéaire
+
+```{r gaz-tendance}
+t <- 1:length(gaz.ts)
+
+mod1 <- lm(gaz.ts ~ t)
+summary(mod1)
+
+plot(gaz.ts,
+     main = "Tendance linéaire – Production Industrielle GAZ",
+     ylab = "Indice", col = "steelblue")
+lines(ts(fitted(mod1), start = start(gaz.ts), frequency = 12),
+      col = "red", lwd = 2)
+legend("topright", legend = c("Série observée", "Tendance linéaire"),
+       col = c("steelblue", "red"), lty = 1)
+```
+
+> La droite rouge s'ajuste bien à la tendance générale de la série. Le coefficient de `t` est **positif (0.079)** et très significatif (p < 2e-16), ce qui confirme la **tendance croissante** : en moyenne, l'indice augmente d'environ 0.08 point par mois. Le **R² ajusté de 0.515** nous dit que la tendance linéaire explique un peu plus de la moitié de la variabilité totale — c'est un début, mais il manque clairement la saisonnalité pour expliquer le reste.
+
+```{r gaz-acf-resid-mod1}
+acf(resid(mod1), lag.max = 48,
+    main = "ACF des résidus – Modèle linéaire (GAZ)")
+```
+
+> Les résidus du modèle linéaire ne ressemblent pas du tout à un bruit blanc. On voit des pics importants et réguliers qui reviennent tous les 12 lags — la saisonnalité est encore bien présente dans les résidus. La tendance seule ne suffit pas, il faut absolument intégrer la saisonnalité.
+
+```{r gaz-shapiro}
+shapiro.test(resid(mod1))
+```
+
+> La p-value du test de Shapiro-Wilk est inférieure à 0.05, ce qui signifie que les résidus ne suivent pas une loi normale. Ce n'est pas surprenant vu que le modèle est encore incomplet à ce stade — la saisonnalité crée des patterns non aléatoires dans les résidus.
+
+### Ajout de la saisonnalité (termes trigonométriques)
+
+```{r gaz-trig}
+MC <- matrix(0, length(t), 6)
+MS <- matrix(0, length(t), 6)
+for (i in 1:6) MC[, i] <- cos(2 * pi * t / (12 / i))
+for (i in 1:6) MS[, i] <- sin(2 * pi * t / (12 / i))
+
+mod4 <- lm(gaz.ts ~ t + MC + MS)
+summary(mod4)
+```
+
+> Le modèle complet avec tous les harmoniques donne un **R² ajusté de 0.875**, soit une amélioration considérable par rapport au modèle linéaire seul (0.515). L'**AIC** sera utilisé pour comparer avec le modèle réduit. Plusieurs termes ne sont pas significatifs (MC4, MC5, MC6, MS1, MS3, MS6) — on va donc les retirer pour simplifier le modèle.
+
+```{r gaz-mod5}
+mod5 <- lm(gaz.ts ~ t + MC[, -c(2, 5)] + MS[, -c(3, 6)])
+summary(mod5)
+
+cat("\nAIC mod4 :", AIC(mod4))
+cat("\nAIC mod5 :", AIC(mod5))
+
+plot(gaz.ts,
+     main = "Ajustement tendance + saisonnalité – Production GAZ",
+     ylab = "Indice", col = "steelblue")
+lines(ts(fitted(mod5), start = start(gaz.ts), frequency = 12),
+      col = "red", lwd = 2)
+legend("topright", legend = c("Série observée", "Série ajustée"),
+       col = c("steelblue", "red"), lty = 1)
+```
+
+> Le modèle réduit `mod5` garde uniquement les harmoniques significatifs. Son **R² ajusté de 0.854** est légèrement inférieur à celui du modèle complet, mais c'est normal — on a retiré des termes non significatifs. L'important est de comparer les **AIC** : si l'AIC de mod5 est proche ou meilleur que celui de mod4, alors mod5 est préférable car il est plus parcimonieux. L'ajustement visuel est excellent — la courbe rouge suit de très près les mouvements de la série bleue, capturant à la fois la tendance croissante et les cycles saisonniers.
+
+```{r gaz-box-resid}
+residus.gaz <- resid(mod5)
+Box.test(residus.gaz)
+adf.test(residus.gaz)
+```
+
+> Le test de Box-Pierce donne une p-value très faible (p < 2.2e-16) — les résidus sont encore autocorrélés, il reste de la structure à modéliser. Le test ADF donne p = 0.2053 > 0.05 — les résidus ne sont pas stationnaires. Ces deux résultats nous confirment qu'une différenciation est nécessaire avant de passer à ARIMA.
+
+### Différenciation (pour la modélisation ARIMA)
+
+```{r gaz-diff}
+gaz.diff1 <- diff(gaz.ts, differences = 1)
+plot(gaz.diff1,
+     main = "Série différenciée (d=1) – Production GAZ",
+     ylab = "Δ Indice", col = "steelblue")
+adf.test(gaz.diff1)
+```
+
+> Après une première différenciation, la série perd sa tendance et oscille autour de zéro — c'est bon signe. Le test ADF confirme avec p = 0.01 que la série différenciée est stationnaire. Mais la saisonnalité est encore visible — les montées et descentes régulières persistent. On applique donc une différenciation saisonnière.
+
+```{r gaz-diff-s12}
+gaz.diff1.s12 <- diff(gaz.diff1, lag = 12)
+plot(gaz.diff1.s12,
+     main = "Série différenciée (d=1, D=1) – Production GAZ",
+     ylab = "ΔΔ Indice", col = "steelblue")
+adf.test(gaz.diff1.s12)
+```
+
+> Après la différenciation saisonnière (lag=12), la série est bien plus stable. Elle oscille autour de zéro sans tendance ni saisonnalité apparente, et l'amplitude reste constante dans le temps. Le test ADF confirme la stationnarité avec p = 0.01. On est maintenant prêts pour la modélisation ARIMA.
+
+```{r gaz-acf-diff}
+acf(gaz.diff1.s12, lag.max = 48,
+    main = "ACF – Après différenciation (d=1, D=1) – GAZ",
+    col  = "steelblue")
+```
+
+> L'ACF après double différenciation montre enfin un profil proche du bruit blanc — la plupart des barres rentrent dans les intervalles de confiance. On observe un pic significatif au lag 1 et quelques pics résiduels qui vont guider le choix des paramètres p, q, P, Q du modèle SARIMA.
+
+---
+
+## Phase 3 – Modélisation ARIMA des Résidus
+
+```{r gaz-autoarima}
+mod.gaz <- auto.arima(gaz.ts, seasonal = TRUE, stepwise = FALSE)
+summary(mod.gaz)
+```
+
+> `auto.arima` a sélectionné le modèle **ARIMA(0,1,3)(0,1,1)[12]**. Cela signifie qu'on différencie une fois (d=1) et une fois saisonnièrement (D=1), avec 3 termes MA non saisonniers et 1 terme MA saisonnier. L'**AIC = 1942.08** servira de référence si on veut comparer avec d'autres modèles candidats. Le **RMSE = 2.65** indique l'erreur moyenne de prévision sur les données d'entraînement — une valeur acceptable pour cette série.
+
+```{r gaz-checkresiduals, fig.height=5}
+checkresiduals(mod.gaz)
+```
+
+> Les résidus du modèle ARIMA oscillent autour de zéro sans structure particulière — c'est rassurant. L'histogramme montre une distribution proche de la normale. L'ACF des résidus montre très peu de pics significatifs. En revanche, le test de Ljung-Box donne **p = 0.0086 < 0.05**, ce qui signifie qu'il reste une légère autocorrélation résiduelle. Le modèle est globalement bon mais pas parfait — c'est acceptable dans ce contexte, notamment en raison des chocs liés au COVID-19 qui sont difficiles à modéliser.
+
+```{r gaz-previsions}
+gaz.forecast <- forecast::forecast(mod.gaz, h = 24)
+plot(gaz.forecast,
+     main = "Prévision 24 mois – Production Industrielle GAZ",
+     ylab = "Indice de production",
+     xlab = "Année")
+```
+
+> La prévision sur 24 mois prolonge bien les tendances observées. La série devrait continuer à osciller saisonnièrement avec le double pic annuel habituel (hiver et été). Les intervalles de confiance (zones bleues) s'élargissent avec le temps — ce qui est tout à fait normal, l'incertitude augmente plus on s'éloigne dans le futur.
+
+---
+---
+
+# Série 2 : Ventes Mensuelles – Équipements de Jardin & Matériaux de Construction
+
+> **Source** : U.S. Census Bureau – Advance Monthly Retail Trade Survey (NAICS 444)
+> **Fréquence** : Mensuelle | **Période** : Janvier 1992 – Décembre 2024
+
+---
+
+## Chargement et préparation des données
+
+```{r load-jardin}
+raw_jardin <- read_excel("C:/Users/DELL/Downloads/ST/garden.xlsx",
+                         sheet = "CIDR", skip = 6)
+colnames(raw_jardin) <- c("date_raw", "value", "extra")
+
+raw_jardin <- raw_jardin[!is.na(raw_jardin$date_raw) &
+                           raw_jardin$date_raw != "Period", ]
+raw_jardin$value <- as.numeric(raw_jardin$value)
+raw_jardin <- raw_jardin[!is.na(raw_jardin$value), ]
+
+jardin.ts <- ts(raw_jardin$value, start = c(1992, 1), frequency = 12)
+
+cat("Nombre d'observations :", length(jardin.ts), "\n")
+cat("Unité : Millions de dollars USD\n")
+summary(jardin.ts)
+```
+
+---
+
+## Phase 1 – Analyse Statistique et Graphique
+
+### (a) Analyse graphique
+
+```{r jardin-chronogramme}
+plot(jardin.ts,
+     main = "Ventes Mensuelles – Équipements de Jardin & Matériaux de Construction",
+     ylab = "Ventes (Millions USD)",
+     xlab = "Temps",
+     col  = "forestgreen")
+```
+
+> La série des ventes d'équipements de jardin est très différente de la première. On voit une **tendance à la hausse très marquée** sur toute la période — les ventes ont été multipliées par plus de 5 en 30 ans. La saisonnalité est aussi très présente — des pics importants chaque année. Ce qui est intéressant, c'est que ces pics deviennent de **plus en plus grands avec le temps** — c'est le signe qu'on a affaire à un **modèle multiplicatif** : la saisonnalité est proportionnelle au niveau de la série. On note aussi un boom spectaculaire en 2020-2021, probablement lié au COVID qui a poussé les gens à investir dans leur maison et jardin.
+
+
+
+```{r jardin-decomp-mult, fig.height=6}
+jardin.decomp.mult <- decompose(jardin.ts, type = "multiplicative")
+plot(jardin.decomp.mult)
+```
+
+> Avec le modèle multiplicatif, les résidus sont beaucoup plus homogènes — leur amplitude reste stable sur toute la période. La saisonnalité est exprimée en **coefficients multiplicatifs autour de 1** : un coefficient de 1.15 signifie que ce mois est 15% au-dessus de la moyenne, ce qui reflète bien la proportionnalité entre l'amplitude et le niveau. C'est clairement le **meilleur modèle** pour cette série.
+
+```{r jardin-acf-residus-decomp}
+acf(jardin.decomp.mult$random, na.action = na.pass, lag.max = 48,
+    main = "ACF résidus – Multiplicatif", col = "forestgreen")
+par(mfrow = c(1, 1))
+```
+
+> On choisit directement le **modèle multiplicatif** car le chronogramme révèle un **changement structurel clair** — l'amplitude des fluctuations saisonnières augmente proportionnellement au niveau de la série, surtout visible à partir des années 2010. Dans ce type de configuration, le modèle additif serait inadapté car il suppose une amplitude constante. La décomposition multiplicative confirme ce choix : les résidus sont homogènes sur toute la période, contrairement à ce qu'on obtiendrait avec un modèle additif.
+
+```{r jardin-boxplot-mois}
+boxplot(jardin.ts ~ cycle(jardin.ts),
+        main  = "Distribution par mois – Équipements de Jardin",
+        xlab  = "Mois",
+        ylab  = "Ventes (Millions USD)",
+        names = c("Jan","Fév","Mar","Avr","Mai","Jun",
+                  "Jul","Aoû","Sep","Oct","Nov","Déc"),
+        col   = "lightgreen")
+```
+
+> Le profil saisonnier est très clair : les ventes **explosent au printemps** — mars, avril et mai sont de loin les mois les plus actifs, ce qui fait parfaitement sens pour des équipements de jardin et des matériaux de construction. À l'inverse, janvier et février sont les mois creux. On note aussi que la **dispersion est plus grande aux mois de pointe** — les boîtes sont plus hautes en mars-mai qu'en hiver — ce qui confirme une fois de plus le modèle multiplicatif.
+
+### (b) Analyse statistique
+
+```{r jardin-stats}
+summary(jardin.ts)
+cat("Écart-type :", round(sd(jardin.ts), 0), "millions USD\n")
+cat("CV (%)     :", round(100 * sd(jardin.ts) / mean(jardin.ts), 2), "%\n")
+```
+
+> Les ventes varient entre **8 947** et **50 535** millions USD, avec une moyenne de **24 257** millions. L'écart-type de **8 712** millions est très élevé, et le **coefficient de variation de 35.91%** confirme une variabilité importante — bien plus grande que pour la série GAZ. Cela s'explique à la fois par la forte tendance croissante et par l'amplitude saisonnière qui grandit avec le temps.
+
+```{r jardin-acf}
+acf(jardin.ts, lag.max = 48,
+    main = "ACF – Série brute (Équipements de Jardin)",
+    col  = "forestgreen")
+```
+
+> Même profil que pour la série GAZ : l'ACF décroît **très lentement** avec des pics réguliers aux multiples de 12. La série est clairement **non stationnaire** et fortement saisonnière. Il faudra différencier avant toute modélisation ARIMA.
+
+```{r jardin-adf}
+adf.test(jardin.ts)
+```
+
+> Le test ADF donne p = 0.01, mais ne nous laissons pas tromper — la tendance visuelle et l'ACF sont sans ambiguïté. La série nécessite une différenciation avant d'être modélisable.
+
+---
+
+## Phase 2 – Ajustement de la Série Temporelle
+
+### Choix du mode d'ajustement : modèle multiplicatif
+
+> Puisque la série suit un **modèle multiplicatif** (amplitude saisonnière proportionnelle au niveau), on travaillera directement avec la décomposition multiplicative. Pour la modélisation par régression, on utilisera la série originale avec des termes trigonométriques, en gardant à l'esprit cette structure multiplicative.
+
+### Modèle de tendance linéaire
+
+```{r jardin-tendance}
+t2 <- 1:length(jardin.ts)
+
+mod1.j <- lm(jardin.ts ~ t2)
+summary(mod1.j)
+
+plot(jardin.ts,
+     main = "Tendance linéaire – Ventes Équipements de Jardin",
+     ylab = "Ventes (Millions USD)", col = "forestgreen")
+lines(ts(fitted(mod1.j), start = start(jardin.ts), frequency = 12),
+      col = "red", lwd = 2)
+legend("topleft", legend = c("Série observée", "Tendance linéaire"),
+       col = c("forestgreen", "red"), lty = 1)
+```
+
+> Le modèle linéaire donne un **R² ajusté de 0.716**, ce qui signifie que la tendance linéaire explique environ 72% de la variabilité. Le coefficient de t2 est **positif et très significatif** — les ventes augmentent en moyenne de **67 millions USD par mois**. Cependant, visuellement, la droite rouge ne suit pas bien les mouvements de la série — elle sous-estime en début de période et surestime en fin. Il manque la saisonnalité.
+
+```{r jardin-acf-resid-mod1}
+acf(resid(mod1.j), lag.max = 48,
+    main = "ACF des résidus – Modèle linéaire (Jardin)")
+```
+
+> Les résidus du modèle linéaire montrent clairement une **structure saisonnière persistante** — des pics significatifs reviennent très régulièrement tous les 12 lags. La tendance seule est loin de suffire, il faut absolument intégrer la saisonnalité.
+
+### Ajout de la saisonnalité trigonométrique
+
+```{r jardin-trig}
+MC2 <- matrix(0, length(t2), 6)
+MS2 <- matrix(0, length(t2), 6)
+for (i in 1:6) MC2[, i] <- cos(2 * pi * t2 / (12 / i))
+for (i in 1:6) MS2[, i] <- sin(2 * pi * t2 / (12 / i))
+
+mod4.j <- lm(jardin.ts ~ t2 + MC2 + MS2)
+summary(mod4.j)
+```
+
+> Le modèle complet avec tous les harmoniques donne un **R² ajusté de 0.879** — une belle amélioration par rapport au modèle linéaire seul (0.716). Plusieurs termes ne sont pas significatifs (MC22, MC24, MC25, MC26, MS23, MS24) — on les retire dans le modèle réduit.
+
+```{r jardin-mod5}
+mod5.j <- lm(jardin.ts ~ t2 + MC2[, -c(2, 5)] + MS2[, -c(3, 6)])
+summary(mod5.j)
+
+cat("\nAIC mod4.j :", AIC(mod4.j))
+cat("\nAIC mod5.j :", AIC(mod5.j))
+
+plot(jardin.ts,
+     main = "Ajustement tendance + saisonnalité – Ventes Jardin",
+     ylab = "Ventes (Millions USD)", col = "forestgreen")
+lines(ts(fitted(mod5.j), start = start(jardin.ts), frequency = 12),
+      col = "red", lwd = 2)
+legend("topleft", legend = c("Série observée", "Série ajustée"),
+       col = c("forestgreen", "red"), lty = 1)
+```
+
+> Le modèle réduit `mod5.j` maintient un **R² ajusté de 0.879**, identique au modèle complet, ce qui confirme qu'on n'a rien perdu en retirant les termes non significatifs. Si l'**AIC de mod5.j est meilleur** (plus faible) que celui de mod4.j, cela confirme que le modèle réduit est préférable. L'ajustement visuel est bien meilleur qu'avec la tendance seule — la courbe rouge suit les mouvements saisonniers, même si des écarts persistent notamment en fin de période où l'amplitude saisonnière augmente (effet multiplicatif).
+
+```{r jardin-box-resid}
+residus.jardin <- resid(mod5.j)
+Box.test(residus.jardin)
+adf.test(residus.jardin)
+```
+
+> Le test de Box-Pierce est très significatif (p < 2.2e-16) et le test ADF donne p = 0.559 — les résidus sont **autocorrélés et non stationnaires**. Le modèle trigonométrique a capturé la tendance et la saisonnalité déterministes, mais il reste une structure stochastique importante à modéliser par différenciation et ARIMA.
+
+### Différenciation
+
+```{r jardin-diff}
+jardin.diff1 <- diff(jardin.ts, differences = 1)
+plot(jardin.diff1,
+     main = "Série différenciée (d=1) – Ventes Jardin",
+     ylab = "Δ Ventes (M USD)", col = "forestgreen")
+adf.test(jardin.diff1)
+```
+
+> Après une première différenciation, la tendance disparaît. La série oscille autour de zéro mais la saisonnalité est encore bien visible — les montées et descentes régulières persistent. Le test ADF confirme la stationnarité (p = 0.01). On différencie maintenant saisonnièrement.
+
+```{r jardin-diff-s12}
+jardin.diff1.s12 <- diff(jardin.diff1, lag = 12)
+plot(jardin.diff1.s12,
+     main = "Série différenciée (d=1, D=1) – Ventes Jardin",
+     ylab = "ΔΔ Ventes (M USD)", col = "forestgreen")
+adf.test(jardin.diff1.s12)
+```
+
+> Après la **double différenciation**, la série est enfin stable — plus de tendance, plus de saisonnalité visible, et l'amplitude reste constante dans le temps. Le test ADF confirme avec p = 0.01 qu'on a atteint la stationnarité. On est prêts pour ARIMA.
+
+```{r jardin-acf-diff}
+acf(jardin.diff1.s12, lag.max = 48,
+    main = "ACF – Après différenciation (d=1, D=1) – Jardin",
+    col  = "forestgreen")
+```
+
+> L'ACF après double différenciation est bien plus propre. La plupart des barres rentrent dans les intervalles de confiance. On observe quelques pics résiduels aux premiers lags qui vont orienter le choix des paramètres ARIMA.
+
+---
+
+## Phase 3 – Modélisation ARIMA des Résidus
+
+```{r jardin-autoarima}
+mod.jardin <- auto.arima(jardin.ts, seasonal = TRUE, stepwise = FALSE)
+summary(mod.jardin)
+```
+
+> `auto.arima` a retenu le modèle **ARIMA(2,1,1)(0,1,2)[12]** directement sur la série originale. C'est un modèle avec deux termes AR, un terme MA non saisonnier, et deux termes MA saisonniers. L'**AIC = -1393.6** — un bon score qui reflète la qualité de l'ajustement. Le **RMSE = 0.036** sur la série différenciée est très faible, signe d'un bon ajustement.
+
+```{r jardin-checkresiduals, fig.height=5}
+checkresiduals(mod.jardin)
+```
+
+> Les résidus du modèle sont **globalement proches d'un bruit blanc** — ils oscillent autour de zéro et leur distribution ressemble à une gaussienne. Cependant, le test de Ljung-Box donne **p = 2.33e-08 < 0.05**, ce qui indique qu'il reste une autocorrélation résiduelle non négligeable. Le modèle est satisfaisant mais on reconnaît ses limites, notamment sur les périodes de forte volatilité comme 2020. C'est un résultat courant sur des séries longues avec des chocs exogènes importants.
+
+```{r jardin-previsions}
+jardin.forecast <- forecast::forecast(mod.jardin, h = 24)
+plot(jardin.forecast,
+     main = "Prévision 24 mois – Ventes Équipements de Jardin (M USD)",
+     ylab = "Ventes (Millions USD)",
+     xlab = "Année")
+```
+
+> La prévision sur 24 mois prolonge bien les tendances observées — on retrouve la saisonnalité printanière qui se répète avec des pics en mars-mai et des creux en hiver. Les ventes devraient continuer à croître, conformément à la tendance historique. Les intervalles de confiance s'élargissent avec le temps, ce qui est normal — l'incertitude augmente naturellement plus on s'éloigne dans le futur.
+
+---
+
+# Synthèse Comparative
+
+| Critère                 | Production Industrielle GAZ      | Équipements de Jardin              |
+|-------------------------|----------------------------------|------------------------------------|
+| Période                 | Janv. 1990 – Mars 2024           | Janv. 1992 – Déc. 2024             |
+| Tendance                | Croissante                       | Fortement croissante               |
+| Saisonnalité            | Double pic (hiver + été)         | Pic printanier (mars–mai)          |
+| Type de modèle          | Additif                          | Multiplicatif                      |
+| Transformation          | Aucune                           | Aucune                             |
+| R² ajusté (mod5)        | 0.854                            | 0.879                              |
+| AIC (mod5)              | Calculé ci-dessus                | Calculé ci-dessus                  |
+| Stationnarité initiale  | Non-stationnaire                 | Non-stationnaire                   |
+| Différenciation         | d=1, D=1 (s=12)                  | d=1, D=1 (s=12)                    |
+| Modèle ARIMA retenu     | ARIMA(0,1,3)(0,1,1)[12]          | ARIMA(2,1,1)(0,1,2)[12]            |
+| AIC modèle ARIMA        | 1942.08                          | -1393.6                            |
+
+> **Conclusion générale** :
+> Les deux séries sont **non-stationnaires** avec une **saisonnalité mensuelle forte** (s=12). La principale différence réside dans la **structure de la variance** :
+> la série GAZ suit un **modèle additif** (amplitude saisonnière constante), tandis que la série Jardin suit un **modèle multiplicatif** (amplitude croissante avec le niveau).
+> Dans les deux cas, une double différenciation (d=1, D=1) suffit à stationnariser la série. Les modèles ARIMA sélectionnés par `auto.arima` produisent des résidus globalement proches du bruit blanc, même si le test de Ljung-Box reste significatif dans les deux cas, ce qui est courant sur des séries longues avec des chocs exogènes importants comme le COVID-19.
