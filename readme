@@ -1,78 +1,160 @@
-📈 Analyse des Séries Temporelles — Production Industrielle GAZ & Ventes Équipements de Jardin
+<div align="center">
 
-📋 Description
+# 📊 Analyse des Séries Temporelles
 
-Ce projet analyse deux séries temporelles mensuelles américaines en appliquant une démarche complète d'analyse : exploration graphique, ajustement, modélisation ARIMA et prévision.
+### Production Industrielle GAZ & Ventes Équipements de Jardin
 
-SérieSourcePériodeObservationsProduction Industrielle GAZ (IPG2211A2N)FRED – Federal Reserve Bank of St. LouisJan. 1990 – Mars 2024411Ventes Équipements de Jardin (NAICS 444)U.S. Census BureauJan. 1992 – Déc. 2024387
+</div>
 
+---
 
-🗂️ Structure du projet
+## 🗂️ Table des matières
 
-├── Production.xlsx          # Données brutes série 1 (GAZ)
-├── garden.xlsx              # Données brutes série 2 (Jardin)
-├── ProjetST.Rmd             # Script R complet (ou .R)
-└── ProjetST.pdf             # Rapport final rendu
-
-
-🔬 Méthodologie
-
-L'analyse est structurée en 3 phases pour chaque série :
-
-Phase 1 — Analyse statistique et graphique
+- [📌 Présentation](#-présentation)
+- [📁 Structure du projet](#-structure-du-projet)
+- [📦 Librairies R](#-librairies-r)
+- [🔬 Méthodologie](#-méthodologie)
+- [📈 Série 1 — Production Industrielle GAZ](#-série-1--production-industrielle-gaz)
+- [🌿 Série 2 — Ventes Équipements de Jardin](#-série-2--ventes-équipements-de-jardin)
+- [⚖️ Synthèse comparative](#️-synthèse-comparative)
 
 
-Chronogramme et statistiques descriptives
-Décomposition (additive ou multiplicative selon la série)
-Boxplot mensuel pour visualiser la saisonnalité
-Corrélogramme ACF + test ADF de stationnarité
+---
 
+## 📌 Présentation
 
-Phase 2 — Ajustement de la série
+Ce projet s'inscrit dans le cadre du module **Séries Temporelles** et porte sur l'analyse complète de deux séries temporelles mensuelles issues de sources officielles américaines.
 
+| | Série 1 — GAZ | Série 2 — Jardin |
+|---|---|---|
+| **Nom** | Production Industrielle (IPG2211A2N) | Ventes Équipements de Jardin (NAICS 444) |
+| **Source** | FRED – Federal Reserve Bank of St. Louis | U.S. Census Bureau |
+| **Période** | Janv. 1990 – Mars 2024 | Janv. 1992 – Déc. 2024 |
+| **Fréquence** | Mensuelle | Mensuelle |
+| **Observations** | 411 | 387 |
+| **Unité** | Indice base 100 (2017) | Millions USD |
 
-Modèle de tendance linéaire
-Ajout de la saisonnalité par termes trigonométriques (harmoniques cosinus/sinus)
-Sélection du meilleur modèle via R² ajusté et AIC
-Différenciation régulière (d=1) et saisonnière (D=1) pour stationnariser
+---
 
+## 📁 Structure du projet
 
-Phase 3 — Modélisation ARIMA
+```
+📦 ProjetST/
+ ├── 📊 Production.xlsx       → Données brutes Série 1 (GAZ)
+ ├── 📊 garden.xlsx           → Données brutes Série 2 (Jardin)
+ ├── 📝 ProjetST.Rmd          → Script R complet (analyse + visualisations)
+ └── 📄 ProjetST.pdf          → Rapport final rendu
+```
 
+---
 
-Identification automatique via auto.arima (stepwise=FALSE)
-Validation des résidus : ACF, test de Ljung-Box, distribution
-Prévision sur 24 mois
+## 📦 Librairies R
 
-
-
-📊 Résultats clés
-
-Série 1 — Production Industrielle GAZ
-
-CritèreRésultatType de décompositionAdditif (amplitude saisonnière constante)Profil saisonnierDouble pic annuel : hiver (chauffage) + été (climatisation)R² ajusté (mod5)0.854Modèle ARIMA retenuARIMA(0,1,3)(0,1,1)[12]AIC1942.08RMSE2.65
-
-Série 2 — Ventes Équipements de Jardin
-
-CritèreRésultatType de décompositionMultiplicatif (amplitude proportionnelle au niveau)Profil saisonnierPic printanier (mars–mai), creux hivernalR² ajusté (mod5)0.879Modèle ARIMA retenuARIMA(3,0,0)(0,1,2)[12] with driftAIC6311.34RMSE1046.71
-
-
-⚖️ Synthèse comparative
-
-CritèreGAZJardinTendanceCroissanteFortement croissanteModèleAdditifMultiplicatifDifférenciationd=1, D=1d=1, D=1Ljung-Boxp = 0.009 (légère autocorrélation résiduelle)p < 2.2e-16
-
-
-Conclusion : Les deux séries partagent une saisonnalité mensuelle forte (s=12) et nécessitent une double différenciation. La différence principale est la structure de la variance — constante pour GAZ (additif), croissante pour Jardin (multiplicatif). Les autocorrélations résiduelles persistent dans les deux cas, ce qui est attendu sur des séries longues avec des chocs exogènes comme le COVID-19.
-
-
-
-
-🛠️ Technologies utilisées
-
- langage R
-
-rlibrary(readxl)    # Lecture des fichiers Excel
+```r
+library(readxl)    # Lecture des fichiers Excel
 library(forecast)  # auto.arima, forecast, checkresiduals
-library(tseries)   # adf.test
+library(tseries)   # adf.test (test de stationnarité ADF)
+```
+
+---
+
+## 🔬 Méthodologie
+
+L'analyse suit une démarche en **3 phases** appliquée à chaque série :
+
+```
+Phase 1                  Phase 2                    Phase 3
+────────────────         ──────────────────────     ──────────────────────
+Analyse graphique   →    Ajustement tendance    →   Modélisation ARIMA
+& statistique            + saisonnalité trigono      + Prévision 24 mois
+```
+
+### 🔹 Phase 1 — Exploration
+- Chronogramme + statistiques descriptives
+- Décomposition additive ou multiplicative
+- Boxplot mensuel (profil saisonnier)
+- ACF + test ADF (stationnarité)
+
+### 🔹 Phase 2 — Ajustement
+- Modèle de tendance linéaire
+- Ajout de la saisonnalité par **harmoniques trigonométriques** (cos/sin)
+- Sélection du modèle via **R² ajusté** et **AIC**
+- Différenciation régulière `d=1` et saisonnière `D=1`
+
+### 🔹 Phase 3 — Modélisation ARIMA
+- Identification via `auto.arima(seasonal=TRUE, stepwise=FALSE)`
+- Validation : ACF des résidus, test de **Ljung-Box**, distribution
+- **Prévision sur 24 mois** avec intervalles de confiance
+
+---
+
+## 📈 Série 1 — Production Industrielle GAZ
+
+> **IPG2211A2N** — Indice mensuel de production dans le secteur électricité & gaz aux États-Unis
+
+### Caractéristiques
+
+- 📈 Tendance **croissante** sur toute la période
+- ❄️☀️ **Double pic annuel** : hiver (chauffage) + été (climatisation)
+- 🔵 Modèle **additif** — amplitude saisonnière constante
+
+### Résultats
+
+| Étape | Résultat |
+|-------|---------|
+| Décomposition | Additive |
+| R² ajusté (mod5) | **0.854** |
+| AIC trigonométrique | 2498.74 |
+| Différenciation | d=1, D=1 (s=12) |
+| **Modèle ARIMA retenu** | **ARIMA(0,1,3)(0,1,1)[12]** |
+| AIC ARIMA | 1942.08 |
+| RMSE | 2.65 |
+| Ljung-Box p-value | 0.0086 |
+
+---
+
+## 🌿 Série 2 — Ventes Équipements de Jardin
+
+> **NAICS 444** — Ventes mensuelles au détail en équipements de jardin & matériaux de construction
+
+### Caractéristiques
+
+- 📈 Tendance **fortement croissante** (×5 en 30 ans)
+- 🌸 **Pic printanier** : mars–mai (creux en hiver)
+- 🟢 Modèle **multiplicatif** — amplitude proportionnelle au niveau
+- 🦠 Boom spectaculaire en 2020–2021 (effet COVID)
+
+### Résultats
+
+| Étape | Résultat |
+|-------|---------|
+| Décomposition | Multiplicative |
+| R² ajusté (mod5) | **0.879** |
+| AIC trigonométrique | 7398.93 |
+| Différenciation | d=1, D=1 (s=12) |
+| **Modèle ARIMA retenu** | **ARIMA(3,0,0)(0,1,2)[12] with drift** |
+| AIC ARIMA | 6311.34 |
+| RMSE | 1046.71 |
+| Ljung-Box p-value | < 2.2e-16 |
+
+---
+
+## ⚖️ Synthèse comparative
+
+| Critère | 📈 GAZ | 🌿 Jardin |
+|---------|--------|----------|
+| Tendance | Croissante | Fortement croissante |
+| Saisonnalité | Double pic (hiver + été) | Pic printanier (mars–mai) |
+| Type de modèle | **Additif** | **Multiplicatif** |
+| Différenciation | d=1, D=1 | d=1, D=1 |
+| Modèle ARIMA | ARIMA(0,1,3)(0,1,1)[12] | ARIMA(3,0,0)(0,1,2)[12] |
+| AIC ARIMA | 1942.08 | 6311.34 |
+| R² ajusté | 0.854 | 0.879 |
+
+> 💡 **Conclusion** : Les deux séries sont non-stationnaires avec une saisonnalité mensuelle forte (s=12). La différence principale est la **structure de la variance** : constante pour GAZ (additif), croissante pour Jardin (multiplicatif). Une double différenciation (d=1, D=1) suffit dans les deux cas. Les autocorrélations résiduelles persistent — résultat courant sur des séries longues avec des chocs exogènes comme le COVID-19.
 
 
+
+<div align="center">
+<sub>Données issues de FRED (Federal Reserve) & U.S. Census Bureau</sub>
+</div>
