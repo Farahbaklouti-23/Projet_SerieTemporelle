@@ -1,102 +1,153 @@
-# Analyse des Séries Temporelles 📊
+# 📊 Time Series Analysis: Industrial Gas Production & Garden Equipment Sales
 
-**Production Industrielle GAZ & Ventes Équipements de Jardin**
+## 📖 Overview
+
+This project was carried out as part of the **Time Series Analysis** course at **ESEN (École Supérieure d'Économie Numérique)**.
+
+The objective is to perform a complete statistical and forecasting analysis of two monthly time series obtained from official U.S. economic databases.
+
+### Datasets
+
+#### 🔥 Industrial Production: Electric and Gas Utilities
+
+* Source: Federal Reserve Economic Data (FRED)
+* Series ID: IPG2211A2N
+* Period: January 1990 – March 2024
+* Observations: 411
+
+#### 🌿 Retail Sales: Building Materials & Garden Equipment
+
+* Source: U.S. Census Bureau
+* NAICS Code: 444
+* Period: January 1992 – December 2024
+* Observations: 387
 
 ---
 
-## 📌 Présentation
+## 🎯 Objectives
 
-Ce projet s'inscrit dans le cadre du module **Séries Temporelles** et porte sur l'analyse complète de deux séries temporelles mensuelles issues de sources officielles américaines.
-
-- **Série 1** : Production Industrielle Électricité & Gaz (IPG2211A2N) — FRED, Federal Reserve Bank of St. Louis — Janv. 1990 – Mars 2024 — 411 observations
-- **Série 2** : Ventes Équipements de Jardin & Matériaux de Construction (NAICS 444) — U.S. Census Bureau — Janv. 1992 – Déc. 2024 — 387 observations
+* Explore and visualize temporal patterns
+* Identify trend and seasonality components
+* Test stationarity using statistical methods
+* Build forecasting models using ARIMA methodology
+* Evaluate model performance and residual diagnostics
+* Generate 24-month forecasts with confidence intervals
 
 ---
 
-## 🗂️ Structure du projet
+## 📂 Project Structure
 
-```
+```text
 ProjetST/
-├── Production.xlsx       → Données brutes Série 1 (GAZ)
-├── garden.xlsx           → Données brutes Série 2 (Jardin)
-├── ProjetST.Rmd          → Script R complet
-└── ProjetST.pdf          → Rapport final
+│
+├── Production.xlsx        # Gas production dataset
+├── garden.xlsx            # Garden equipment sales dataset
+├── ProjetST.Rmd           # Complete R analysis script
+└── ProjetST.pdf           # Final project report
 ```
 
 ---
 
-## 📦 Librairies R
+## 🛠️ Technologies Used
+
+* R
+* R Markdown
+* Excel
+
+### Libraries
 
 ```r
-library(readxl)    # Lecture des fichiers Excel
-library(forecast)  # auto.arima, forecast, checkresiduals
-library(tseries)   # adf.test
+library(readxl)
+library(forecast)
+library(tseries)
 ```
 
 ---
 
-## 🔬 Méthodologie
+## 🔍 Methodology
 
-### Phase 1 — Exploration graphique & statistique
+### 1. Exploratory Analysis
 
-- Chronogramme + statistiques descriptives
-- Décomposition additive ou multiplicative
-- Boxplot mensuel pour visualiser le profil saisonnier
-- Corrélogramme ACF + test ADF de stationnarité
+* Time series visualization
+* Descriptive statistics
+* Seasonal boxplots
+* Additive and multiplicative decomposition
+* Autocorrelation analysis (ACF)
+* Augmented Dickey-Fuller (ADF) stationarity test
 
-### Phase 2 — Ajustement de la série
+### 2. Trend & Seasonality Modeling
 
-- Modèle de tendance linéaire
-- Ajout de la saisonnalité par harmoniques trigonométriques (cos/sin)
-- Sélection du meilleur modèle via R² ajusté et AIC
-- Différenciation régulière `d=1` et saisonnière `D=1`
+* Linear trend estimation
+* Seasonal harmonic terms (sine/cosine)
+* Model selection using:
 
-### Phase 3 — Modélisation ARIMA
+  * Adjusted R²
+  * AIC
 
-- Identification via `auto.arima(seasonal = TRUE, stepwise = FALSE)`
-- Validation des résidus : ACF, test de Ljung-Box, distribution
-- Prévision sur **24 mois** avec intervalles de confiance
+### 3. ARIMA Modeling
 
----
+* Automatic model identification using:
 
-## 📈 Série 1 — Production Industrielle GAZ
+```r
+auto.arima(seasonal = TRUE, stepwise = FALSE)
+```
 
-- **Tendance** : Croissante sur toute la période
-- **Saisonnalité** : Double pic annuel — hiver (chauffage) + été (climatisation)
-- **Modèle** : Additif — amplitude saisonnière constante
-- **R² ajusté** : 0.854
-- **Modèle ARIMA retenu** : ARIMA(0,1,3)(0,1,1)[12]
-- **AIC** : 1942.08 | **RMSE** : 2.65
-
----
-
-## 🌿 Série 2 — Ventes Équipements de Jardin
-
-- **Tendance** : Fortement croissante (×5 en 30 ans)
-- **Saisonnalité** : Pic printanier (mars–mai), creux hivernal
-- **Modèle** : Multiplicatif — amplitude proportionnelle au niveau
-- **R² ajusté** : 0.879
-- **Modèle ARIMA retenu** : ARIMA(3,0,0)(0,1,2)[12] with drift
-- **AIC** : 6311.34 | **RMSE** : 1046.71
+* Residual diagnostics
+* Ljung-Box test
+* Forecast generation for 24 months
 
 ---
 
-## ⚖️ Synthèse comparative
+## 📈 Results
 
-| Critère | GAZ | Jardin |
-|---|---|---|
-| Tendance | Croissante | Fortement croissante |
-| Saisonnalité | Double pic (hiver + été) | Pic printanier (mars–mai) |
-| Modèle | Additif | Multiplicatif |
-| Différenciation | d=1, D=1 | d=1, D=1 |
-| Modèle ARIMA | ARIMA(0,1,3)(0,1,1)[12] | ARIMA(3,0,0)(0,1,2)[12] |
-| R² ajusté | 0.854 | 0.879 |
-| AIC ARIMA | 1942.08 | 6311.34 |
+### 🔥 Industrial Gas Production
 
-> Les deux séries sont non-stationnaires avec une saisonnalité mensuelle forte (s=12). La différence principale est la structure de la variance : constante pour GAZ (additif), croissante pour Jardin (multiplicatif).
+| Metric      | Value                   |
+| ----------- | ----------------------- |
+| Trend       | Increasing              |
+| Seasonality | Winter & Summer Peaks   |
+| Model Type  | Additive                |
+| Adjusted R² | 0.854                   |
+| ARIMA Model | ARIMA(0,1,3)(0,1,1)[12] |
+| AIC         | 1942.08                 |
+| RMSE        | 2.65                    |
 
 ---
 
-## 👥 Équipe
+### 🌿 Garden Equipment Sales
 
-Projet réalisé en équipe — Module Séries Temporelles | ESEN — Juin 2026
+| Metric      | Value                              |
+| ----------- | ---------------------------------- |
+| Trend       | Strongly Increasing                |
+| Seasonality | Spring Peak                        |
+| Model Type  | Multiplicative                     |
+| Adjusted R² | 0.879                              |
+| ARIMA Model | ARIMA(3,0,0)(0,1,2)[12] with drift |
+| AIC         | 6311.34                            |
+| RMSE        | 1046.71                            |
+
+---
+
+## ⚖️ Comparative Analysis
+
+| Criterion        | Gas Production        | Garden Equipment Sales |
+| ---------------- | --------------------- | ---------------------- |
+| Trend            | Increasing            | Strongly Increasing    |
+| Seasonality      | Winter & Summer Peaks | Spring Peak            |
+| Seasonality Type | Additive              | Multiplicative         |
+| Differencing     | d=1, D=1              | d=1, D=1               |
+| Best ARIMA       | (0,1,3)(0,1,1)[12]    | (3,0,0)(0,1,2)[12]     |
+| Adjusted R²      | 0.854                 | 0.879                  |
+
+### Key Findings
+
+* Both series exhibit strong annual seasonality (s = 12).
+* Both are non-stationary in their original form.
+* Gas production presents a relatively constant seasonal amplitude (additive structure).
+* Garden equipment sales display increasing seasonal variability over time (multiplicative structure).
+---
+
+
+## ⭐ Conclusion
+
+This project demonstrates the application of classical time series techniques, including decomposition, stationarity testing, ARIMA modeling, and forecasting. The results highlight the importance of understanding trend and seasonal structures before building predictive models.
