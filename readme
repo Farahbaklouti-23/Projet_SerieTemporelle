@@ -1,153 +1,104 @@
-# 📊 Time Series Analysis: Industrial Gas Production & Garden Equipment Sales
+#Time Series Analysis
 
-## 📖 Overview
+## Industrial Gas Production & Garden Equipment Sales Forecasting
 
-This project was carried out as part of the **Time Series Analysis** course at **ESEN (École Supérieure d'Économie Numérique)**.
+This project was conducted as part of the **Time Series Analysis** course at **ESEN (École Supérieure d'Économie Numérique)**.
 
-The objective is to perform a complete statistical and forecasting analysis of two monthly time series obtained from official U.S. economic databases.
-
-### Datasets
-
-#### 🔥 Industrial Production: Electric and Gas Utilities
-
-* Source: Federal Reserve Economic Data (FRED)
-* Series ID: IPG2211A2N
-* Period: January 1990 – March 2024
-* Observations: 411
-
-#### 🌿 Retail Sales: Building Materials & Garden Equipment
-
-* Source: U.S. Census Bureau
-* NAICS Code: 444
-* Period: January 1992 – December 2024
-* Observations: 387
+The objective is to analyze, model, and forecast two monthly economic time series using statistical techniques and ARIMA models.
 
 ---
 
 ## 🎯 Objectives
 
-* Explore and visualize temporal patterns
-* Identify trend and seasonality components
-* Test stationarity using statistical methods
-* Build forecasting models using ARIMA methodology
-* Evaluate model performance and residual diagnostics
-* Generate 24-month forecasts with confidence intervals
+* Explore temporal patterns
+* Identify trend and seasonality
+* Test stationarity
+* Build ARIMA forecasting models
+* Evaluate model performance
+* Generate future forecasts
 
 ---
 
-## 📂 Project Structure
+## 📂 Datasets
 
-```text
-ProjetST/
-│
-├── Production.xlsx        # Gas production dataset
-├── garden.xlsx            # Garden equipment sales dataset
-├── ProjetST.Rmd           # Complete R analysis script
-└── ProjetST.pdf           # Final project report
-```
+### 🔥 Industrial Production: Electric and Gas Utilities
+
+* Source: FRED (Federal Reserve Economic Data)
+* Series ID: IPG2211A2N
+* Period: Jan 1990 – Mar 2024
+* Observations: 411
+
+### 🌿 Building Materials & Garden Equipment Sales
+
+* Source: U.S. Census Bureau
+* NAICS Code: 444
+* Period: Jan 1992 – Dec 2024
+* Observations: 387
 
 ---
 
-## 🛠️ Technologies Used
+## 🛠️ Technologies
 
 * R
 * R Markdown
 * Excel
-
-### Libraries
-
-```r
-library(readxl)
-library(forecast)
-library(tseries)
-```
+* Forecast Package
+* Tseries Package
 
 ---
 
-## 🔍 Methodology
+## 🔬 Methodology
 
-### 1. Exploratory Analysis
+### Exploratory Analysis
 
 * Time series visualization
 * Descriptive statistics
-* Seasonal boxplots
-* Additive and multiplicative decomposition
-* Autocorrelation analysis (ACF)
-* Augmented Dickey-Fuller (ADF) stationarity test
+* Seasonal decomposition
+* Monthly boxplots
+* ACF analysis
+* ADF stationarity test
 
-### 2. Trend & Seasonality Modeling
+### Modeling
 
-* Linear trend estimation
-* Seasonal harmonic terms (sine/cosine)
-* Model selection using:
-
-  * Adjusted R²
-  * AIC
-
-### 3. ARIMA Modeling
-
-* Automatic model identification using:
-
-```r
-auto.arima(seasonal = TRUE, stepwise = FALSE)
-```
-
+* Trend estimation
+* Seasonal harmonic modeling
+* ARIMA model selection
 * Residual diagnostics
-* Ljung-Box test
-* Forecast generation for 24 months
+
+### Forecasting
+
+* 24-month forecasts
+* Confidence intervals
+* Model evaluation
 
 ---
 
 ## 📈 Results
 
-### 🔥 Industrial Gas Production
-
-| Metric      | Value                   |
-| ----------- | ----------------------- |
-| Trend       | Increasing              |
-| Seasonality | Winter & Summer Peaks   |
-| Model Type  | Additive                |
-| Adjusted R² | 0.854                   |
-| ARIMA Model | ARIMA(0,1,3)(0,1,1)[12] |
-| AIC         | 1942.08                 |
-| RMSE        | 2.65                    |
-
----
-
-### 🌿 Garden Equipment Sales
-
-| Metric      | Value                              |
-| ----------- | ---------------------------------- |
-| Trend       | Strongly Increasing                |
-| Seasonality | Spring Peak                        |
-| Model Type  | Multiplicative                     |
-| Adjusted R² | 0.879                              |
-| ARIMA Model | ARIMA(3,0,0)(0,1,2)[12] with drift |
-| AIC         | 6311.34                            |
-| RMSE        | 1046.71                            |
-
----
-
-## ⚖️ Comparative Analysis
-
-| Criterion        | Gas Production        | Garden Equipment Sales |
-| ---------------- | --------------------- | ---------------------- |
-| Trend            | Increasing            | Strongly Increasing    |
-| Seasonality      | Winter & Summer Peaks | Spring Peak            |
-| Seasonality Type | Additive              | Multiplicative         |
-| Differencing     | d=1, D=1              | d=1, D=1               |
-| Best ARIMA       | (0,1,3)(0,1,1)[12]    | (3,0,0)(0,1,2)[12]     |
-| Adjusted R²      | 0.854                 | 0.879                  |
+| Metric      | Gas Production     | Garden Equipment Sales |
+| ----------- | ------------------ | ---------------------- |
+| Model Type  | Additive           | Multiplicative         |
+| Adjusted R² | 0.854              | 0.879                  |
+| ARIMA Model | (0,1,3)(0,1,1)[12] | (3,0,0)(0,1,2)[12]     |
+| AIC         | 1942.08            | 6311.34                |
 
 ### Key Findings
 
-* Both series exhibit strong annual seasonality (s = 12).
-* Both are non-stationary in their original form.
-* Gas production presents a relatively constant seasonal amplitude (additive structure).
-* Garden equipment sales display increasing seasonal variability over time (multiplicative structure).
+* Both series exhibit strong annual seasonality.
+* Both datasets are non-stationary before differencing.
+* Gas production shows additive seasonality.
+* Garden sales exhibit multiplicative seasonality.
+* ARIMA models provide accurate forecasting performance.
+
 ---
 
+## 📁 Repository Structure
 
-## ⭐ Conclusion
+```text
+├── Production.xlsx
+├── garden.xlsx
+├── ProjetST.Rmd
+├── ProjetST.pdf
+└── README.md
+```
 
-This project demonstrates the application of classical time series techniques, including decomposition, stationarity testing, ARIMA modeling, and forecasting. The results highlight the importance of understanding trend and seasonal structures before building predictive models.
